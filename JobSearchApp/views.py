@@ -14,15 +14,24 @@ import sys, json
 global userid, pnameValue, pdateValue
 
 from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut
+import time
+from geopy.geocoders import OpenCage
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 
 def get_latitude_longitude(address):
-    geolocator = Nominatim(user_agent="myGeocoder")
-    location = geolocator.geocode(address)
-    if location:
-        latitude = location.latitude
-        longitude = location.longitude
-        return latitude, longitude
-    else:
+    try:
+        api_key = '056be892bc21449882e589362089d804'  # Replace with your actual API key
+        response = requests.get(f'https://api.opencagedata.com/geocode/v1/json?q={address}&key={api_key}')
+        data = response.json()
+        if data and data['results']:
+            latitude = data['results'][0]['geometry']['lat']
+            longitude = data['results'][0]['geometry']['lng']
+            return latitude, longitude
+        else:
+            return None, None
+    except Exception as e:
+        print(f"Error getting location: {e}")
         return None, None
 
 def getLocation(area):
@@ -31,31 +40,35 @@ def getLocation(area):
         print(f"Latitude: {latitude}, Longitude: {longitude}")
     else:
         print("Location not found.")
-    return float(latitude), float(longitude)
+    return latitude, longitude
 
 def getDistance(lat1, lon1, lat2, lon2):
     R = 6373.0  # Earth's radius in kilometers
+
     lat1_rad = radians(lat1)
     lon1_rad = radians(lon1)
     lat2_rad = radians(lat2)
     lon2_rad = radians(lon2)
+
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
-    a = sin(dlat / 2) * 2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) * 2
+
+    a = sin(dlat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) ** 2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     distance = R * c
+
     return distance
 
 def SearchJobAction(request):
     if request.method == 'POST':
         area = request.POST.get('t1', False)
         print('area is::', area)
-        distance = request.POST.get('t2', False)
+        distance = request.POST.get('t2', False).replace('km', '')
         shift = request.POST.get('t3', False)
         weekly = request.POST.get('t4', False)
-        salary = request.POST.get('t5', False)
+        salary = request.POST.get('t5', False).replace('lpa', '')
         lat1, lon1 = getLocation(area)
-        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         output = ""
         with con:
             cur = con.cursor()
@@ -72,7 +85,7 @@ def SearchJobAction(request):
                 location = row[7]
                 posted_shift = row[8]
                 working_days = row[9]
-                tot_salary = row[10]
+                tot_salary = row[10].replace('lpa', '')
                 environment = row[11]
                 post_date = row[12]
                 status = row[13]
@@ -111,7 +124,7 @@ def Activate(request):
             result = "Deactivated"
         elif status == "Deactivated":
             result = "Active"
-        db_connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        db_connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         db_cursor = db_connection.cursor()
         student_sql_query = "update jobpost set status='" + result + "' where job_id='" + job_id + "'"
         db_cursor.execute(student_sql_query)
@@ -124,7 +137,7 @@ def ActivateJob(request):
     if request.method == 'GET':
         global userid
         output = ""
-        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         with con:
             cur = con.cursor()
             cur.execute("select * FROM jobpost where username='" + userid + "'")
@@ -157,7 +170,7 @@ def PostJobAction(request):
         print(skills)
         job_count = 0
         output = 'none'
-        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         with con:
             cur = con.cursor()
             cur.execute("select count(*) FROM jobpost")
@@ -166,7 +179,7 @@ def PostJobAction(request):
                 job_count = row[0]
         job_count = job_count + 1
         today = date.today()
-        db_connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        db_connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         db_cursor = db_connection.cursor()
         student_sql_query = "INSERT INTO jobpost(job_id,username,position,responsibility,qualification,experience,skills,location,shift,working_days,salary,work_environment,post_date,status) VALUES('" + str(job_count) + "','" + userid + "','" + position + "','" + responsibility + "','" + qualification + "','" + experience + "','" + skills + "','" + location + "','" + shift + "','" + working + "','" + salary + "','" + environment + "','" + str(today) + "','Active')"
         db_cursor.execute(student_sql_query)
@@ -205,7 +218,7 @@ def SignupAction(request):
         address = request.POST.get('t6', False)
         usertype = request.POST.get('t7', False)
         output = 'none'
-        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         with con:
             cur = con.cursor()
             cur.execute("select username FROM signup")
@@ -214,7 +227,7 @@ def SignupAction(request):
                 if row[0] == username:
                     output = username + " Username already exists"
         if output == "none":
-            db_connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+            db_connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
             db_cursor = db_connection.cursor()
             student_sql_query = "INSERT INTO signup(username,password,emailid,contact_no,qualification,address,usertype) VALUES('" + username + "','" + password + "','" + email + "','" + contact + "','" + qualification + "','" + address + "','" + usertype + "')"
             db_cursor.execute(student_sql_query)
@@ -237,7 +250,7 @@ def LoginAction(request):
         password = request.POST.get('t2', False)
         usertype = request.POST.get('t3', False)
         status = 'none'
-        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', database='jobsearch', charset='utf8')
+        con = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='new_password', database='jobsearch', charset='utf8')
         with con:
             cur = con.cursor()
             cur.execute("select username,password FROM signup")
