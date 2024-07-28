@@ -1,0 +1,30 @@
+create database jobsearch;
+use jobsearch;
+
+create table signup(username varchar(50) primary key,
+password varchar(50),
+emailid varchar(50),
+contact_no varchar(20),
+qualification varchar(50),
+address varchar(50),
+usertype  varchar(250));
+
+create table jobpost(job_id int,
+username varchar(50),
+position varchar(60),
+responsibility varchar(80),
+qualification varchar(60),
+experience varchar(60),
+skills varchar(80),
+location varchar(60),
+shift varchar(10),
+working_days varchar(10),
+salary varchar(20),
+work_environment varchar(130),
+post_date varchar(30),
+status varchar(30));
+
+
+
+
+
